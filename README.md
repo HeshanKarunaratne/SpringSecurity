@@ -75,3 +75,20 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
     }
 }
 ~~~
+
+Below Snippet shows how routes are matched according to ROLES and permission
+**** THE ORDER OF antMatchers is a must ***
+
+~~~java
+@Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .antMatchers("/index.html").permitAll()
+                .antMatchers("/profile/**").authenticated()
+                .antMatchers("/admin/**").hasRole("ADMIN")
+                .antMatchers("/management/**").hasAnyRole("ADMIN","MANAGER")
+                .and()
+                .httpBasic();
+    }
+~~~
