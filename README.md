@@ -25,3 +25,53 @@ Form Based Authentication:
 HTTP Basic Authentication
   - Browser request a username and a password when making a request in order to authenticate a user
   - username:password
+
+
+To add Security to an unsecure Springboot application add below dependency
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+    <scope>test</scope>
+</dependency>
+
+Will be redirected to a basic login page given by Spring Security
+default username: user
+password: generated password in the console
+
+To Enable HTTP basic Authentication- use below snippet
+
+~~~
+@Configuration
+@EnableWebSecurity
+public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        /**
+         * In memory authentication
+         */
+        auth
+                .inMemoryAuthentication()
+                .withUser("admin").password(passwordEncoder().encode("admin123")).roles("ADMIN")
+                .and()
+                .withUser("heshan").password(passwordEncoder().encode("123")).roles("USER");
+
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .anyRequest()
+                .authenticated()
+                .and()
+                .httpBasic();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder(){
+         return new BCryptPasswordEncoder();
+    }
+}
+~~~
