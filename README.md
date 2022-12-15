@@ -40,7 +40,7 @@ password: generated password in the console
 
 To Enable HTTP basic Authentication- use below snippet
 
-~~~
+~~~java
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
