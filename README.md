@@ -17,3 +17,11 @@ JWT - JsonWebToken
   - Header
   - Payload
   - Secret
+
+Form Based Authentication: 
+  - Custom HTML page that will collect credentials and take responsibility to collect form data (creates SESSION_ID and returns auth cookie and used this auth cookie when sending api calls)
+  - Most suited for self contained apps that do not expose public APIs to other parties
+  
+HTTP Basic Authentication
+  - Browser request a username and a password when making a request in order to authenticate a user
+  - username:password
