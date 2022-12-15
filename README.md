@@ -131,3 +131,61 @@ protected void configure(HttpSecurity http) throws Exception {
             .httpBasic();
 }
 ~~~
+
+How to Add SSL/HTTPS to Springboot application
+ - Certificate
+   * Self Signed
+   * Buy
+ - Modify application.properties
+ - Add @Bean of ServletWebServerFactory
+
+1) Navigate to jdk installed location using command prompt using Administrative Mode
+  eg: C:\Program Files\Java\jdk-11.0.12\bin>
+
+2) Enter below command
+  .\keytool.exe -genkey -alias bootsecurity -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore bootsecurity.p12 -validity 3650
+
+3) Enter details when prompted
+
+4) Copy generated file to Project resources
+
+5) Add below properties to application.properties
+
+~~~java
+  server.port=8443
+  server.ssl.enabled=true
+  server.ssl.key-store=src/main/resources/bootsecurity.p12
+  server.ssl.key-store-password=bootsecurity
+  server.ssl.key-store-type=PKCS12
+  server.ssl.key-alias=bootsecurity
+~~~
+
+6) Add below snippets.
+
+~~~java
+@Bean
+public ServletWebServerFactory servletContainer(){
+    TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory(){
+        @Override
+        protected void postProcessContext(Context context) {
+            SecurityConstraint securityConstraint = new SecurityConstraint();
+            securityConstraint.setUserConstraint("CONFIDENTIAL");
+            SecurityCollection collection = new SecurityCollection();
+            collection.addPattern("/*");
+            securityConstraint.addCollection(collection);
+            context.addConstraint(securityConstraint);
+        }
+    };
+  tomcat.addAdditionalTomcatConnectors(httpToHttpsRedirectConnector());
+  return tomcat;
+}
+
+private Connector httpToHttpsRedirectConnector(){
+    Connector connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
+    connector.setScheme("http");
+    connector.setPort(8080);
+    connector.setSecure(false);
+    connector.setRedirectPort(8443);
+    return connector;
+}
+~~~
