@@ -95,6 +95,8 @@ Below Snippet shows how routes are matched according to ROLES and permission
 
 Granted Authorities are more Granular than Roles (check below snippet to get an idea on authorities and how it has restricted access to different apis and users)
 
+** When adding both roles and authorities to a user authorities only picks up, therefore need to add the role name to authority list with "ROLE_" prefix **
+
 ~~~java
 @Override
 protected void configure(AuthenticationManagerBuilder auth) throws Exception {
@@ -103,8 +105,7 @@ protected void configure(AuthenticationManagerBuilder auth) throws Exception {
             .inMemoryAuthentication()
             .withUser("admin")
             .password(passwordEncoder().encode("admin123"))
-            .roles("ADMIN")
-            .authorities("ACCESS_TEST1", "ACCESS_TEST2")
+            .authorities("ACCESS_TEST1", "ACCESS_TEST2", "ROLE_ADMIN")
             .and()
             .withUser("heshan")
             .password(passwordEncoder().encode("heshan123"))
@@ -112,8 +113,7 @@ protected void configure(AuthenticationManagerBuilder auth) throws Exception {
             .and()
             .withUser("manager")
             .password(passwordEncoder().encode("manager123"))
-            .roles("MANAGER")
-            .authorities("ACCESS_TEST1");
+            .authorities("ACCESS_TEST1", "ROLE_MANAGER");
 
 }
 
@@ -188,4 +188,277 @@ private Connector httpToHttpsRedirectConnector(){
     connector.setRedirectPort(8443);
     return connector;
 }
+~~~
+
+Adding a Database connection to store user Information
+    - Create a User entity to store information
+    - Store the User in the database
+    - Link our User entity with build in classes in Spring Security
+        * Link User with UserDetails interface
+        * Link UserRepository with UserDetailsService interface
+    - Intergrate Database Auth in our configuration
+
+
+User -> UserPrincipal implements UserDetails
+UserRepository -> UserPrincipalDetailsService implements UserDetailsService
+
+Below snippet shows how to map User to UserPrincipal
+
+~~~java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * @author Heshan Karunaratne
+ */
+public class UserPrincipal implements UserDetails {
+
+    private final User user;
+
+    @Autowired
+    public UserPrincipal(User user) {
+        this.user = user;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        this.user.getPermissionList().forEach(
+                permissionName -> {
+                    GrantedAuthority authority = new SimpleGrantedAuthority(permissionName);
+                    authorities.add(authority);
+                }
+        );
+
+        this.user.getRoleList().forEach(
+                roleName -> {
+                    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + roleName);
+                    authorities.add(authority);
+                }
+        );
+
+        return authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.user.getPassword();
+    }
+
+    @Override
+    public String getUsername() {
+        return this.user.getUsername();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return this.user.getActive() == 1;
+    }
+}
+
+~~~
+
+Below snippet shows how to map User to UserPrincipalDetailsService
+
+~~~java
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import rc.bootsecurity.domain.User;
+import rc.bootsecurity.domain.UserPrincipal;
+import rc.bootsecurity.repository.UserRepository;
+
+/**
+ * @author Heshan Karunaratne
+ */
+@Service
+public class UserPrincipalDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public UserPrincipalDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.findByUsername(username);
+        return new UserPrincipal(user);
+    }
+}
+
+~~~
+
+Below snippet for User domain 
+
+~~~java
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * @author Heshan Karunaratne
+ */
+public class UserPrincipal implements UserDetails {
+
+    private final User user;
+
+    @Autowired
+    public UserPrincipal(User user) {
+        this.user = user;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        this.user.getPermissionList().forEach(
+                permissionName -> {
+                    GrantedAuthority authority = new SimpleGrantedAuthority(permissionName);
+                    authorities.add(authority);
+                }
+        );
+
+        this.user.getRoleList().forEach(
+                roleName -> {
+                    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + roleName);
+                    authorities.add(authority);
+                }
+        );
+
+        return authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.user.getPassword();
+    }
+
+    @Override
+    public String getUsername() {
+        return this.user.getUsername();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return this.user.getActive() == 1;
+    }
+}
+
+~~~
+
+Below snippet after changing from in memory authentication to database authentication
+
+~~~java
+
+import heshan.springsecurity.service.UserPrincipalDetailsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+/**
+ * @author Heshan Karunaratne
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+
+    private final UserPrincipalDetailsService userPrincipalDetailsService;
+
+    @Autowired
+    public SecurityConfiguration(UserPrincipalDetailsService userPrincipalDetailsService) {
+        this.userPrincipalDetailsService = userPrincipalDetailsService;
+    }
+
+ 
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) {
+        auth.authenticationProvider(authenticationProvider());
+    }
+
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .antMatchers("/index.html").permitAll()
+                .antMatchers("/profile/**").authenticated()
+                .antMatchers("/admin/**").hasRole("ADMIN")
+                .antMatchers("/management/**").hasAnyRole("ADMIN", "MANAGER")
+                .antMatchers("/api/public/test1").hasAuthority("ACCESS_TEST1")
+                .antMatchers("/api/public/test2").hasAuthority("ACCESS_TEST2")
+                .antMatchers("/api/public/users").hasRole("ADMIN")
+                .and()
+                .httpBasic();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+        daoAuthenticationProvider.setUserDetailsService(this.userPrincipalDetailsService);
+        return daoAuthenticationProvider;
+    }
+}
+
+
 ~~~
