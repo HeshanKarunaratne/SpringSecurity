@@ -460,5 +460,107 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
     }
 }
 
+~~~
+
+Forms Authentication: Add a custom login page to authenticate the users.
+Create your custom login view and controller.
+(Even though you have implemented a get /login endpoint you didnt wanted to create a post /login endpoint - Spring Security handled it for us)
+
+~~~java
+
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .authorizeRequests()
+            .antMatchers("/index.html").permitAll()
+            .antMatchers("/profile/**").authenticated()
+            .antMatchers("/admin/**").hasRole("ADMIN")
+            .antMatchers("/management/**").hasAnyRole("ADMIN", "MANAGER")
+            .antMatchers("/api/public/test1").hasAuthority("ACCESS_TEST1")
+            .antMatchers("/api/public/test2").hasAuthority("ACCESS_TEST2")
+            .antMatchers("/api/public/users").hasRole("ADMIN")
+            .and()
+            .formLogin()
+            .loginPage("/login")
+            .permitAll();
+}
+~~~
+
+With Form authentication need to create a /logout endpoint for the logged in users to log out.
+Following changes can enable logout and remember me screens from Spring Security out of the box. 
+Below list is the default values for form based Authentication
+
+login endpoint -> /login
+username id, name -> username
+password id, name -> password
+remember me id, name -> remember-me
+
+~~~java
+
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .authorizeRequests()
+            .antMatchers("/index.html").permitAll()
+            .antMatchers("/profile/**").authenticated()
+            .antMatchers("/admin/**").hasRole("ADMIN")
+            .antMatchers("/management/**").hasAnyRole("ADMIN", "MANAGER")
+            .antMatchers("/api/public/test1").hasAuthority("ACCESS_TEST1")
+            .antMatchers("/api/public/test2").hasAuthority("ACCESS_TEST2")
+            .antMatchers("/api/public/users").hasRole("ADMIN")
+            .and()
+
+            .formLogin()
+            .loginPage("/login")
+            .permitAll()
+            .and()
+
+            .logout()
+            .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+            .logoutSuccessUrl("/login")
+
+            .and()
+            .rememberMe()
+            .tokenValiditySeconds(3600);
+}
+
+~~~
+
+When you changed defaults value for login endpoint, username, password and remember me we need to tell Spring Security to adjust to new values like below
+
+~~~java
+
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .authorizeRequests()
+            .antMatchers("/index.html").permitAll()
+            .antMatchers("/profile/**").authenticated()
+            .antMatchers("/admin/**").hasRole("ADMIN")
+            .antMatchers("/management/**").hasAnyRole("ADMIN", "MANAGER")
+            .antMatchers("/api/public/test1").hasAuthority("ACCESS_TEST1")
+            .antMatchers("/api/public/test2").hasAuthority("ACCESS_TEST2")
+            .antMatchers("/api/public/users").hasRole("ADMIN")
+            .and()
+
+            .formLogin()
+            .loginProcessingUrl("/signin")
+            .loginPage("/login")
+            .permitAll()
+            .usernameParameter("txtUsername")
+            .passwordParameter("txtPassword")
+            .and()
+
+            .logout()
+            .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+            .logoutSuccessUrl("/login")
+
+            .and()
+            .rememberMe()
+            .tokenValiditySeconds(3600)
+            .key("mySecret!")
+            .rememberMeParameter("checkRememberMe");
+
+}
 
 ~~~
