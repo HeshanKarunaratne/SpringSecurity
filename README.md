@@ -564,3 +564,17 @@ protected void configure(HttpSecurity http) throws Exception {
 }
 
 ~~~
+
+View Updates based on security
+ - Show / hide content based on user is authenticated or not
+ - Show / hide content based on user has different roles and permission
+
+
+Add below dependency
+<dependency>
+    <groupId>org.thymeleaf.extras</groupId>
+    <artifactId>thymeleaf-extras-springsecurity5</artifactId>
+</dependency>
+
+
+JWT Section
