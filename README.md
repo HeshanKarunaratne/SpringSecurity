@@ -714,3 +714,148 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 ~~~
 
  4) Create JwtAuthorizationFilter class
+
+ ~~~java
+
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import heshan.springsecurity.db.UserRepository;
+import heshan.springsecurity.model.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+/**
+ * @author Heshan Karunaratne
+ */
+public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public JwtAuthorizationFilter(AuthenticationManager authenticationManager, UserRepository userRepository) {
+        super(authenticationManager);
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
+        //Read the Authorization header, where the JWT token should be
+        String header = request.getHeader(JwtProperties.HEADER_STRING);
+
+        //If header does not contain Bearer or is null delegate to String impl and exit
+        if (header == null || !header.startsWith(JwtProperties.TOKEN_PREFIX)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        //If header is present, try grab user principal from database and perform authorization
+        Authentication authentication = getUsernamePasswordAuthentication(request);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        //Continue filter execution
+        chain.doFilter(request, response);
+    }
+
+    private Authentication getUsernamePasswordAuthentication(HttpServletRequest request) {
+        String token = request.getHeader(JwtProperties.HEADER_STRING);
+        if (token != null) {
+            //parse the token and validate it
+            String username = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET.getBytes()))
+                    .build()
+                    .verify(token.replace(JwtProperties.TOKEN_PREFIX, ""))
+                    .getSubject();
+
+            //Search in the DB if we find the user by token subject(username)
+            //If so, then grab user details and create spring auth token using username, password, authorities/roles
+
+            if (username != null) {
+                User user = userRepository.findByUsername(username);
+                UserPrincipal principal = new UserPrincipal(user);
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, null, principal.getAuthorities());
+                return auth;
+            }
+            return null;
+        }
+        return null;
+    }
+}
+
+ ~~~
+
+ 5) Change SecuriyConfiguration class to below format
+
+ ~~~java
+
+import heshan.springsecurity.db.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+    private final UserPrincipalDetailsService userPrincipalDetailsService;
+    private final UserRepository userRepository;
+
+    @Autowired
+    public SecurityConfiguration(UserPrincipalDetailsService userPrincipalDetailsService, UserRepository userRepository) {
+        this.userPrincipalDetailsService = userPrincipalDetailsService;
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) {
+        auth.authenticationProvider(authenticationProvider());
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .csrf().disable()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+
+                .addFilter(new JwtAuthenticationFilter(authenticationManager()))
+                .addFilter(new JwtAuthorizationFilter(authenticationManager(), userRepository))
+
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST, "/login").permitAll()
+                .antMatchers("/api/public/management/*").hasRole("MANAGER")
+                .antMatchers("/api/public/admin/*").hasRole("ADMIN");
+    }
+
+    @Bean
+    DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+        daoAuthenticationProvider.setUserDetailsService(this.userPrincipalDetailsService);
+
+        return daoAuthenticationProvider;
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+ ~~~
