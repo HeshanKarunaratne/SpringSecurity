@@ -79,7 +79,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 Below Snippet shows how routes are matched according to ROLES and permission
 **** THE ORDER OF antMatchers is a must ***
 
-~~~java
+~~~txt
 @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
@@ -97,7 +97,7 @@ Granted Authorities are more Granular than Roles (check below snippet to get an 
 
 ** When adding both roles and authorities to a user authorities only picks up, therefore need to add the role name to authority list with "ROLE_" prefix **
 
-~~~java
+~~~txt
 @Override
 protected void configure(AuthenticationManagerBuilder auth) throws Exception {
 
@@ -151,7 +151,7 @@ How to Add SSL/HTTPS to Springboot application
 
 5) Add below properties to application.properties
 
-~~~java
+~~~txt
   server.port=8443
   server.ssl.enabled=true
   server.ssl.key-store=src/main/resources/bootsecurity.p12
@@ -162,7 +162,7 @@ How to Add SSL/HTTPS to Springboot application
 
 6) Add below snippets.
 
-~~~java
+~~~txt
 @Bean
 public ServletWebServerFactory servletContainer(){
     TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory(){
@@ -466,8 +466,7 @@ Forms Authentication: Add a custom login page to authenticate the users.
 Create your custom login view and controller.
 (Even though you have implemented a get /login endpoint you didnt wanted to create a post /login endpoint - Spring Security handled it for us)
 
-~~~java
-
+~~~txt
 @Override
 protected void configure(HttpSecurity http) throws Exception {
     http
@@ -495,8 +494,7 @@ username id, name -> username
 password id, name -> password
 remember me id, name -> remember-me
 
-~~~java
-
+~~~txt
 @Override
 protected void configure(HttpSecurity http) throws Exception {
     http
@@ -528,8 +526,7 @@ protected void configure(HttpSecurity http) throws Exception {
 
 When you changed defaults value for login endpoint, username, password and remember me we need to tell Spring Security to adjust to new values like below
 
-~~~java
-
+~~~txt
 @Override
 protected void configure(HttpSecurity http) throws Exception {
     http
@@ -626,7 +623,6 @@ public class LoginViewModel {
         - successfulAuthentication - This will trigger when attemptAuthentication method is successful
 
 ~~~java
-
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -857,5 +853,4 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
         return new BCryptPasswordEncoder();
     }
 }
-
  ~~~
